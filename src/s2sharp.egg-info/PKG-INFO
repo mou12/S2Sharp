@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: s2sharp
+Version: 1.0.0
+Summary: Sentinel-2 sharpening using a reduced-rank method
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: pymanopt>=2.2
+Requires-Dist: scikit-image>=0.21
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
