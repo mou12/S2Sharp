@@ -124,8 +124,7 @@ def compute_ssim(I1: np.ndarray, I2: np.ndarray) -> np.ndarray:
     num_bands = I1.shape[2]
     result = np.zeros(num_bands)
     for b in range(num_bands):
-        data_range = max(I1[:, :, b].max() - I1[:, :, b].min(),
-                         I2[:, :, b].max() - I2[:, :, b].min())
+        data_range = I1[:, :, b].max() - I1[:, :, b].min()
         if data_range == 0:
             data_range = 1.0
         result[b] = structural_similarity(
@@ -195,8 +194,7 @@ def evaluate(
             SRE_val[i] = 10 * np.log10(
                 np.sum(X[i, :] ** 2) / np.sum((Xhat_mat[ind[i], :] - X[i, :]) ** 2)
             )
-            data_range = max(Xm_crop[:, :, i].max() - Xm_crop[:, :, i].min(),
-                             Xhat_crop[:, :, ind[i]].max() - Xhat_crop[:, :, ind[i]].min())
+            data_range = Xm_crop[:, :, i].max() - Xm_crop[:, :, i].min()
             if data_range == 0:
                 data_range = 1.0
             SSIM_val[i] = structural_similarity(
@@ -224,8 +222,7 @@ def evaluate(
             SRE_val[i] = 10 * np.log10(
                 np.sum(X[i, :] ** 2) / np.sum((Xhat_mat[i, :] - X[i, :]) ** 2)
             )
-            data_range = max(Xm_crop[:, :, i].max() - Xm_crop[:, :, i].min(),
-                             Xhat_crop[:, :, i].max() - Xhat_crop[:, :, i].min())
+            data_range = Xm_crop[:, :, i].max() - Xm_crop[:, :, i].min()
             if data_range == 0:
                 data_range = 1.0
             SSIM_val[i] = structural_similarity(

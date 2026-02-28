@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import pymanopt
 from pymanopt.manifolds import Stiefel
-from pymanopt.optimizers import ConjugateGradient
+from pymanopt.optimizers import TrustRegions
 
 from .convolution import conv_cm
 
@@ -66,11 +66,11 @@ def f_step(
     nc: int,
     Mask: np.ndarray,
 ) -> np.ndarray:
-    """Optimize F on the Stiefel manifold using pymanopt ConjugateGradient.
+    """Optimize F on the Stiefel manifold using pymanopt TrustRegions.
 
     Replicates MATLAB Fstep (S2sharp.m lines 207-226).
-    Uses ConjugateGradient instead of TrustRegions because
-    pymanopt's numpy backend cannot auto-differentiate for Hessian.
+    The cost J(F) = 0.5 * sum_i ||MBZT_i' * f_i - y_i||^2 is quadratic in F,
+    so the Euclidean Hessian-vector product is exact.
 
     Parameters
     ----------
@@ -97,7 +97,7 @@ def f_step(
     # Precompute MBZT in transposed layout (L, n, r)
     MBZT_T = _compute_mbzt(Z, Mask, FBM, nl, r, L)
 
-    # Precompute A and ZBYT for gradient
+    # Precompute A and ZBYT for gradient and Hessian
     A = np.zeros((r, r, L))
     ZBYT = np.zeros((L, r))
     for i in range(L):
@@ -115,15 +115,34 @@ def f_step(
     def euclidean_gradient(F):
         return _egrad_f(F, A, ZBYT)
 
+    @pymanopt.function.numpy(manifold)
+    def riemannian_hessian(point, tangent_vector):
+        """FD Riemannian Hessian matching MATLAB manopt's approxhessianFD."""
+        norm_v = manifold.norm(point, tangent_vector)
+        if norm_v < 1e-30:
+            return manifold.zero_vector(point)
+        # Match MATLAB manopt's getHessianFD: epsilon = 2^-14,
+        # c = epsilon / norm_d, step length = epsilon ≈ 6.1e-5.
+        epsilon = 2.0 ** (-14)
+        c = norm_v / epsilon
+        y = manifold.retraction(point, tangent_vector / c)
+        rgrad_x = manifold.euclidean_to_riemannian_gradient(
+            point, _egrad_f(point, A, ZBYT))
+        rgrad_y = manifold.euclidean_to_riemannian_gradient(
+            y, _egrad_f(y, A, ZBYT))
+        transported = manifold.transport(y, point, rgrad_y)
+        return c * (transported - rgrad_x)
+
     problem = pymanopt.Problem(
         manifold=manifold,
         cost=cost,
         euclidean_gradient=euclidean_gradient,
+        riemannian_hessian=riemannian_hessian,
     )
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        optimizer = ConjugateGradient(
+        optimizer = TrustRegions(
             min_gradient_norm=1e-2,
             verbosity=0,
         )

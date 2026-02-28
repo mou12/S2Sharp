@@ -1,11 +1,10 @@
 """SVD-based subspace initialization."""
 
 import numpy as np
-from scipy.ndimage import zoom
 
 from .convolution import create_conv_kernel_subspace
 from .preprocessing import create_subsampling
-from .utils import conv2mat
+from .utils import conv2mat, matlab_imresize
 
 
 def initialize(
@@ -67,11 +66,11 @@ def initialize(
         if di == 1:
             Ylim[:, :, i] = bands[i]
         else:
-            # imresize with factor d[i] — zoom by the downsampling factor
-            Ylim[:, :, i] = zoom(bands[i], di, order=3)
+            # imresize with factor d[i] — matching MATLAB's Keys cubic kernel
+            Ylim[:, :, i] = matlab_imresize(bands[i], di)
 
     # Apply complementary blur
-    Y2im = np.real(np.fft.ifft2(np.fft.fft2(Ylim) * FBM2))
+    Y2im = np.real(np.fft.ifft2(np.fft.fft2(Ylim, axes=(0, 1)) * FBM2, axes=(0, 1)))
 
     # Crop borders
     Y2tr = Y2im[border:-border, border:-border, :]

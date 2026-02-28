@@ -1,7 +1,6 @@
 """Data preparation: normalization, subsampling, and weight computation."""
 
 import numpy as np
-from scipy.ndimage import convolve
 
 from .utils import conv2im, conv2mat
 
@@ -164,21 +163,21 @@ def compute_weights(
     nc = Y.shape[1] // nl
     grad_all = np.zeros((nl, nc, len(hr_bands)))
 
-    # MATLAB's imgradient with 'intermediate' method uses [-1 1; -1 1]/2 filters
-    kx = np.array([[-1, 1], [-1, 1]]) / 2
-    ky = np.array([[-1, -1], [1, 1]]) / 2
-
+    # MATLAB's imgradient with 'intermediate' method uses 1D forward differences
+    # with replicate boundary (equivalent to zero gradient at last row/col).
     for idx, i in enumerate(hr_bands):
         img = conv2im(Y[i:i + 1, :], nl, nc, 1).squeeze()
-        gx = convolve(img, kx, mode='wrap')
-        gy = convolve(img, ky, mode='wrap')
+        gx = np.zeros_like(img)
+        gy = np.zeros_like(img)
+        gx[:, :-1] = img[:, 1:] - img[:, :-1]
+        gy[:-1, :] = img[1:, :] - img[:-1, :]
         grad_all[:, :, idx] = np.hypot(gx, gy) ** 2
 
     # Max gradient across HR bands, then sqrt
     grad = np.sqrt(np.max(grad_all, axis=2))
 
-    # Normalize by 95th percentile
-    q95 = np.quantile(grad.ravel(), 0.95)
+    # Normalize by 95th percentile (method='hazen' matches MATLAB's quantile)
+    q95 = np.quantile(grad.ravel(), 0.95, method='hazen')
     if q95 > 0:
         grad = grad / q95
 

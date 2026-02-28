@@ -3,7 +3,7 @@
 import numpy as np
 import scipy.fft
 
-from .utils import conv2im, conv2mat, gaussian_kernel
+from .utils import conv2im, conv2mat, gaussian_kernel, matlab_round
 
 
 def create_conv_kernel(
@@ -94,8 +94,8 @@ def create_conv_kernel_subspace(
     np.ndarray
         FFT of complementary blur kernels, shape (nl, nc, L).
     """
-    middlel = round((nl + 1) / 2)  # MATLAB: round((nl+1)/2), 1-based
-    middlec = round((nc + 1) / 2)
+    middlel = matlab_round((nl + 1) / 2)  # MATLAB: round((nl+1)/2), 1-based
+    middlec = matlab_round((nc + 1) / 2)
 
     # Convert to 0-based
     middlel -= 1
