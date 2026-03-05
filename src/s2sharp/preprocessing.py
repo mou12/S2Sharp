@@ -155,7 +155,7 @@ def compute_weights(
     Returns
     -------
     np.ndarray
-        Weight matrix, shape (1, n).
+        Weight image, shape (nl, nc, 1).
     """
     # Find high-resolution bands (d == 1)
     hr_bands = np.where(d == 1)[0]
@@ -185,5 +185,4 @@ def compute_weights(
     Wim = np.exp(-grad ** 2 / (2 * sigmas ** 2))
     Wim[Wim < 0.5] = 0.5
 
-    W = conv2mat(Wim)  # (1, n)
-    return W
+    return Wim[:, :, np.newaxis]  # (nl, nc, 1)

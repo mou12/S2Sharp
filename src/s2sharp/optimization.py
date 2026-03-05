@@ -3,6 +3,7 @@
 import warnings
 
 import numpy as np
+import scipy.fft
 import pymanopt
 from pymanopt.manifolds import Stiefel
 from pymanopt.optimizers import TrustRegions
@@ -23,15 +24,24 @@ def _compute_mbzt(
     MBZT(:,:,i) = repmat(Mask(i,:), [r,1]) .* ConvCM(Z, repmat(FBM(:,:,i), [1,1,r]), nl)
 
     Returns MBZT_T in transposed layout (L, n, r) for efficient batched operations.
+
+    Vectorized: computes fft2(Z) once and uses broadcasting instead of
+    tiling FBM per band.
     """
     n = Z.shape[1]
+    nc = n // nl
+
+    # Single forward FFT of Z — shape (nl, nc, r)
+    Z_im = Z.T.reshape(nl, nc, r)
+    Z_freq = scipy.fft.fft2(Z_im, axes=(0, 1), workers=-1)
+
     MBZT_T = np.zeros((L, n, r))
     for i in range(L):
-        FBM_rep = np.tile(FBM[:, :, i:i + 1], (1, 1, r))
-        BZ = conv_cm(Z, FBM_rep, nl)
-        # BZ is (r, n), mask is (1, n), result is (r, n)
-        masked = np.tile(Mask[i:i + 1, :], (r, 1)) * BZ
-        MBZT_T[i, :, :] = masked.T  # (n, r)
+        # Broadcast FBM[:,:,i] across r components instead of tiling
+        BZ_im = np.real(scipy.fft.ifft2(Z_freq * FBM[:, :, i:i + 1], axes=(0, 1), workers=-1))
+        BZ = BZ_im.reshape(n, r).T  # (r, n)
+        # Mask[i,:] broadcasts across r rows
+        MBZT_T[i, :, :] = (Mask[i:i + 1, :] * BZ).T  # (n, r)
     return MBZT_T
 
 

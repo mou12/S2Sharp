@@ -161,7 +161,7 @@ def conv_cm(
     # Inline conv2im: X.T.reshape(nl, nc, L)
     X_im = X.T.reshape(nl, nc, L)
     # FFT convolution using scipy.fft for better performance
-    result = np.real(scipy.fft.ifft2(scipy.fft.fft2(X_im, axes=(0, 1)) * FKM, axes=(0, 1)))
+    result = np.real(scipy.fft.ifft2(scipy.fft.fft2(X_im, axes=(0, 1), workers=-1) * FKM, axes=(0, 1), workers=-1))
     # Inline conv2mat: result.reshape(n, L).T
     return result.reshape(n, L).T
 

@@ -142,7 +142,10 @@ class TestPhase4Weights:
     """Phase 4: Validate W matches MATLAB (boundary conditions fix)."""
 
     def test_weights_match(self, ref, setup):
-        W_py = setup['W']
+        nl, nc = setup['nl'], setup['nc']
+        n = nl * nc
+        # compute_weights returns (nl, nc, 1); reshape to (1, n) for MATLAB comparison
+        W_py = setup['W'].reshape(n, 1).T
         W_mat = ref['W']
         np.testing.assert_allclose(W_py, W_mat, atol=1e-10,
                                    err_msg="W mismatch — boundary conditions fix may be incorrect")
@@ -168,7 +171,7 @@ class TestPhase3Optimizer:
         lam = 1.8998e-04
 
         Z = np.zeros((r, n))
-        Z = z_step(Y, FBM, F, lam, nl, nc, Z, Mask, q, FDH, FDV, FDHC, FDVC, W)
+        Z, _ = z_step(Y, FBM, F, lam, nl, nc, Z, Mask, q, FDH, FDV, FDHC, FDVC, W)
 
         # Compare Z after first Z-step
         Z_mat = ref['Z_iter1']

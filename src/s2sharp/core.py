@@ -38,6 +38,7 @@ class S2SharpResult:
     aSSIM: list[float] = field(default_factory=list)
     ERGAS_20m: list[float] = field(default_factory=list)
     ERGAS_60m: list[float] = field(default_factory=list)
+    cg_iterations: list[int] = field(default_factory=list)
     GCVscore: float | None = None
     Time: float = 0.0
 
@@ -54,6 +55,8 @@ def s2sharp(
     g_step_only: bool = False,
     gcv: bool = False,
     tol_grad_norm: float = 0.1,
+    warm_start: bool = True,
+    precondition: bool = False,
 ) -> S2SharpResult:
     """Main S2Sharp algorithm.
 
@@ -84,6 +87,11 @@ def s2sharp(
         If True, compute GCV score.
     tol_grad_norm : float
         Gradient norm tolerance for CG solver.
+    warm_start : bool
+        If True (default), use previous Z as initial point for CG at each CD
+        iteration. If False, reset Z to zeros before each CG call (cold start).
+    precondition : bool
+        If True, use Fourier-domain preconditioner for CG solver.
 
     Returns
     -------
@@ -156,11 +164,15 @@ def s2sharp(
 
     for j in range(cd_iter):
         # Z-step
-        Z = z_step(
-            Y, FBM, F, lam, nl, nc, Z, Mask, q,
+        Z_init = Z if warm_start else np.zeros_like(Z)
+        Z_init, cg_iters = z_step(
+            Y, FBM, F, lam, nl, nc, Z_init, Mask, q,
             FDH, FDV, FDHC, FDVC, W,
             tol_grad_norm=tol_grad_norm,
+            precondition=precondition,
         )
+        Z = Z_init  # always keep result for next iteration
+        output.cg_iterations.append(cg_iters)
 
         # F-step (skip if g_step_only)
         if not g_step_only:
@@ -170,10 +182,11 @@ def s2sharp(
         if gcv:
             rng = np.random.default_rng()
             Ynoise = (np.abs(Y) > 0).astype(np.float64) * rng.standard_normal(Y.shape)
-            Znoise = z_step(
+            Znoise, _ = z_step(
                 Ynoise, FBM, F, lam, nl, nc, Z, Mask, q,
                 FDH, FDV, FDHC, FDVC, W,
                 tol_grad_norm=tol_grad_norm,
+                precondition=precondition,
             )
             HtHBXnoise = Mask * conv_cm(F @ Znoise, FBM, nl)
 
